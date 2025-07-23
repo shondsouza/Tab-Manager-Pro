@@ -8,19 +8,45 @@
 </head>
 <body>
   <div class="header">
-    <h1>Tab Manager Pro</h1>
+    <div class="header-top">
+      <h1>Tab Manager Pro</h1>
+      <div class="header-stats">
+        <span id="total-tabs" class="stat">0 tabs</span>
+        <span id="total-groups" class="stat">0 groups</span>
+      </div>
+    </div>
+    <div class="search-container">
+      <input type="text" id="search-tabs" placeholder="🔍 Search tabs..." />
+      <button id="clear-search" class="clear-btn hidden">×</button>
+    </div>
     <div class="header-actions">
       <button id="create-group-btn" class="btn-primary">+ New Group</button>
-      <button id="save-session-btn" class="btn-secondary">Save Session</button>
+      <button id="save-session-btn" class="btn-secondary">💾 Save</button>
+      <button id="restore-session-btn" class="btn-secondary">📂 Restore</button>
+      <button id="close-duplicates-btn" class="btn-secondary">🔗 Duplicates</button>
     </div>
   </div>
 
   <div class="content">
+    <!-- Quick Actions Bar -->
+    <div class="quick-actions">
+      <button id="select-all-tabs" class="quick-action">Select All</button>
+      <button id="close-selected-tabs" class="quick-action" disabled>Close Selected</button>
+      <button id="move-to-group" class="quick-action" disabled>Move to Group</button>
+      <button id="sort-tabs" class="quick-action">🔤 Sort A-Z</button>
+    </div>
+
     <!-- Ungrouped tabs section -->
     <div class="section">
-      <div class="section-header">
-        <h3>Ungrouped Tabs</h3>
-        <span id="ungrouped-count" class="tab-count">0</span>
+      <div class="section-header collapsible" data-section="ungrouped">
+        <div class="section-title">
+          <span class="collapse-icon">▼</span>
+          <h3>Ungrouped Tabs</h3>
+          <span id="ungrouped-count" class="tab-count">0</span>
+        </div>
+        <div class="section-actions">
+          <button class="section-action" id="close-all-ungrouped" title="Close all ungrouped tabs">×</button>
+        </div>
       </div>
       <div id="ungrouped-tabs" class="tab-list">
         <!-- Tabs will be populated by JavaScript -->
@@ -31,24 +57,81 @@
     <div id="groups-container">
       <!-- Groups will be populated by JavaScript -->
     </div>
+
+    <!-- Empty state -->
+    <div id="empty-state" class="empty-state hidden">
+      <div class="empty-icon">📂</div>
+      <p>No tabs found</p>
+      <small>Try adjusting your search or open some tabs</small>
+    </div>
   </div>
 
   <!-- Create Group Modal -->
   <div id="create-group-modal" class="modal hidden">
     <div class="modal-content">
-      <h3>Create New Group</h3>
-      <input type="text" id="group-name-input" placeholder="Enter group name" />
-      <div class="color-picker">
-        <div class="color-option" data-color="#3b82f6" style="background: #3b82f6;"></div>
-        <div class="color-option" data-color="#ef4444" style="background: #ef4444;"></div>
-        <div class="color-option" data-color="#10b981" style="background: #10b981;"></div>
-        <div class="color-option" data-color="#f59e0b" style="background: #f59e0b;"></div>
-        <div class="color-option" data-color="#8b5cf6" style="background: #8b5cf6;"></div>
-        <div class="color-option" data-color="#06b6d4" style="background: #06b6d4;"></div>
+      <div class="modal-header">
+        <h3>Create New Group</h3>
+        <button class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <input type="text" id="group-name-input" placeholder="Enter group name" maxlength="50" />
+        <div class="color-picker">
+          <div class="color-option selected" data-color="#3b82f6" style="background: #3b82f6;"></div>
+          <div class="color-option" data-color="#ef4444" style="background: #ef4444;"></div>
+          <div class="color-option" data-color="#10b981" style="background: #10b981;"></div>
+          <div class="color-option" data-color="#f59e0b" style="background: #f59e0b;"></div>
+          <div class="color-option" data-color="#8b5cf6" style="background: #8b5cf6;"></div>
+          <div class="color-option" data-color="#06b6d4" style="background: #06b6d4;"></div>
+          <div class="color-option" data-color="#ec4899" style="background: #ec4899;"></div>
+          <div class="color-option" data-color="#84cc16" style="background: #84cc16;"></div>
+        </div>
+        <div class="group-options">
+          <label class="checkbox-label">
+            <input type="checkbox" id="auto-close-empty">
+            <span class="checkmark"></span>
+            Auto-close when empty
+          </label>
+        </div>
       </div>
       <div class="modal-actions">
         <button id="cancel-group-btn" class="btn-secondary">Cancel</button>
         <button id="confirm-group-btn" class="btn-primary">Create Group</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Restore Session Modal -->
+  <div id="restore-session-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Restore Session</h3>
+        <button class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div id="sessions-list" class="sessions-list">
+          <!-- Sessions will be populated by JavaScript -->
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="cancel-restore-btn" class="btn-secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Group Selection Modal -->
+  <div id="group-selection-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Move Tabs to Group</h3>
+        <button class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div id="group-selection-list" class="group-selection-list">
+          <!-- Groups will be populated by JavaScript -->
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="cancel-move-btn" class="btn-secondary">Cancel</button>
       </div>
     </div>
   </div>
