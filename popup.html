@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tab Manager Pro</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="header">
+    <h1>Tab Manager Pro</h1>
+    <div class="header-actions">
+      <button id="create-group-btn" class="btn-primary">+ New Group</button>
+      <button id="save-session-btn" class="btn-secondary">Save Session</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- Ungrouped tabs section -->
+    <div class="section">
+      <div class="section-header">
+        <h3>Ungrouped Tabs</h3>
+        <span id="ungrouped-count" class="tab-count">0</span>
+      </div>
+      <div id="ungrouped-tabs" class="tab-list">
+        <!-- Tabs will be populated by JavaScript -->
+      </div>
+    </div>
+
+    <!-- Groups section -->
+    <div id="groups-container">
+      <!-- Groups will be populated by JavaScript -->
+    </div>
+  </div>
+
+  <!-- Create Group Modal -->
+  <div id="create-group-modal" class="modal hidden">
+    <div class="modal-content">
+      <h3>Create New Group</h3>
+      <input type="text" id="group-name-input" placeholder="Enter group name" />
+      <div class="color-picker">
+        <div class="color-option" data-color="#3b82f6" style="background: #3b82f6;"></div>
+        <div class="color-option" data-color="#ef4444" style="background: #ef4444;"></div>
+        <div class="color-option" data-color="#10b981" style="background: #10b981;"></div>
+        <div class="color-option" data-color="#f59e0b" style="background: #f59e0b;"></div>
+        <div class="color-option" data-color="#8b5cf6" style="background: #8b5cf6;"></div>
+        <div class="color-option" data-color="#06b6d4" style="background: #06b6d4;"></div>
+      </div>
+      <div class="modal-actions">
+        <button id="cancel-group-btn" class="btn-secondary">Cancel</button>
+        <button id="confirm-group-btn" class="btn-primary">Create Group</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

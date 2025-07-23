@@ -1,0 +1,19 @@
+# Node modules (if you use npm/yarn)
+node_modules/
+
+# Environment/config files with secrets
+.env
+config.js
+
+# Build/output folders (if you have any)
+dist/
+build/
+
+# OS/IDE files
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Extension packaging files
+*.crx
+*.pem
