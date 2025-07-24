@@ -1,4 +1,4 @@
-// Tab Manager Pro - Enhanced with new features
+// Tab Manager Pro - Enhanced with Drag & Drop
 
 class TabManager {
   constructor() {
@@ -8,6 +8,8 @@ class TabManager {
     this.selectedTabs = new Set();
     this.selectedColor = '#3b82f6';
     this.searchQuery = '';
+    this.draggedTab = null;
+    this.draggedElement = null;
     this.init();
   }
 
@@ -15,6 +17,7 @@ class TabManager {
     await this.loadData();
     await this.loadTabs();
     this.setupEventListeners();
+    this.setupDragAndDrop();
     this.render();
     this.updateStats();
   }
@@ -130,6 +133,217 @@ class TabManager {
     });
   }
 
+  setupDragAndDrop() {
+    // Enable drag and drop for all tab lists
+    document.addEventListener('dragstart', (e) => {
+      if (e.target.classList.contains('tab-item')) {
+        this.handleDragStart(e);
+      }
+    });
+
+    document.addEventListener('dragend', (e) => {
+      if (e.target.classList.contains('tab-item')) {
+        this.handleDragEnd(e);
+      }
+    });
+
+    document.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      this.handleDragOver(e);
+    });
+
+    document.addEventListener('drop', (e) => {
+      e.preventDefault();
+      this.handleDrop(e);
+    });
+
+    document.addEventListener('dragenter', (e) => {
+      this.handleDragEnter(e);
+    });
+
+    document.addEventListener('dragleave', (e) => {
+      this.handleDragLeave(e);
+    });
+  }
+
+  handleDragStart(e) {
+    const tabItem = e.target.closest('.tab-item');
+    const tabId = parseInt(tabItem.querySelector('.tab-checkbox').dataset.tabId);
+    
+    this.draggedTab = this.allTabs.find(tab => tab.id === tabId);
+    this.draggedElement = tabItem;
+    
+    tabItem.classList.add('dragging');
+    
+    // Set drag data
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', tabId.toString());
+    
+    // Create drag image
+    const dragImage = tabItem.cloneNode(true);
+    dragImage.style.transform = 'rotate(5deg)';
+    dragImage.style.opacity = '0.8';
+    document.body.appendChild(dragImage);
+    e.dataTransfer.setDragImage(dragImage, 0, 0);
+    setTimeout(() => document.body.removeChild(dragImage), 0);
+
+    // Show all drop zones
+    this.showDropZones();
+  }
+
+  handleDragEnd(e) {
+    const tabItem = e.target.closest('.tab-item');
+    tabItem.classList.remove('dragging');
+    
+    this.draggedTab = null;
+    this.draggedElement = null;
+    
+    // Hide all drop zones and placeholders
+    this.hideDropZones();
+    this.clearDragPlaceholders();
+  }
+
+  handleDragOver(e) {
+    e.preventDefault();
+    
+    const tabList = e.target.closest('.tab-list');
+    const tabItem = e.target.closest('.tab-item');
+    const group = e.target.closest('.group');
+    
+    if (tabList && !tabItem) {
+      // Dragging over empty space in tab list
+      this.showDragPlaceholder(tabList, null);
+    } else if (tabItem && tabItem !== this.draggedElement) {
+      // Dragging over another tab item
+      const rect = tabItem.getBoundingClientRect();
+      const midY = rect.top + rect.height / 2;
+      const insertBefore = e.clientY < midY;
+      
+      this.showDragPlaceholder(tabList, insertBefore ? tabItem : tabItem.nextElementSibling);
+    }
+  }
+
+  handleDragEnter(e) {
+    const tabList = e.target.closest('.tab-list');
+    const group = e.target.closest('.group');
+    
+    if (tabList) {
+      tabList.classList.add('drag-over');
+    }
+    
+    if (group) {
+      group.classList.add('drag-over');
+    }
+  }
+
+  handleDragLeave(e) {
+    const tabList = e.target.closest('.tab-list');
+    const group = e.target.closest('.group');
+    
+    // Only remove drag-over if we're actually leaving the element
+    if (tabList && !tabList.contains(e.relatedTarget)) {
+      tabList.classList.remove('drag-over');
+    }
+    
+    if (group && !group.contains(e.relatedTarget)) {
+      group.classList.remove('drag-over');
+    }
+  }
+
+  handleDrop(e) {
+    e.preventDefault();
+    
+    const tabList = e.target.closest('.tab-list');
+    const group = e.target.closest('.group');
+    
+    if (!this.draggedTab || !tabList) return;
+    
+    // Determine target group
+    let targetGroupIndex = null;
+    if (tabList.dataset.group === 'ungrouped') {
+      targetGroupIndex = 'ungrouped';
+    } else if (group) {
+      const groupHeader = group.querySelector('.group-header');
+      targetGroupIndex = parseInt(groupHeader.dataset.group);
+    }
+    
+    // Move the tab
+    this.moveTabToGroup(this.draggedTab.id, targetGroupIndex);
+    
+    // Clean up
+    this.hideDropZones();
+    this.clearDragPlaceholders();
+  }
+
+  showDropZones() {
+    document.querySelectorAll('.drop-zone').forEach(zone => {
+      zone.classList.remove('hidden');
+    });
+  }
+
+  hideDropZones() {
+    document.querySelectorAll('.drop-zone').forEach(zone => {
+      zone.classList.add('hidden');
+    });
+    
+    document.querySelectorAll('.tab-list').forEach(list => {
+      list.classList.remove('drag-over');
+    });
+    
+    document.querySelectorAll('.group').forEach(group => {
+      group.classList.remove('drag-over');
+    });
+  }
+
+  showDragPlaceholder(tabList, beforeElement) {
+    this.clearDragPlaceholders();
+    
+    const placeholder = document.createElement('div');
+    placeholder.className = 'drag-placeholder active';
+    
+    if (beforeElement) {
+      tabList.insertBefore(placeholder, beforeElement);
+    } else {
+      tabList.appendChild(placeholder);
+    }
+  }
+
+  clearDragPlaceholders() {
+    document.querySelectorAll('.drag-placeholder').forEach(placeholder => {
+      placeholder.remove();
+    });
+  }
+
+  async moveTabToGroup(tabId, targetGroupIndex) {
+    const tab = this.allTabs.find(t => t.id === tabId);
+    if (!tab) return;
+
+    // Remove tab from all groups first
+    this.groups.forEach(group => {
+      group.tabs = group.tabs.filter(t => t.id !== tabId);
+    });
+
+    // Add to target group if not ungrouped
+    if (targetGroupIndex !== 'ungrouped' && targetGroupIndex !== null) {
+      if (this.groups[targetGroupIndex]) {
+        this.groups[targetGroupIndex].tabs.push({
+          id: tab.id,
+          title: tab.title,
+          url: tab.url
+        });
+      }
+    }
+
+    // Clean up empty groups with auto-close
+    this.groups = this.groups.filter(group => 
+      !(group.autoClose && group.tabs.length === 0)
+    );
+
+    await this.saveData();
+    this.render();
+    this.updateStats();
+  }
+
   setupModalHandlers() {
     // Create group modal
     document.getElementById('cancel-group-btn').addEventListener('click', () => {
@@ -215,7 +429,13 @@ class TabManager {
     
     countElement.textContent = ungroupedTabs.length;
     
+    // Clear existing content except drop zone
+    const dropZone = container.querySelector('.drop-zone');
     container.innerHTML = '';
+    if (dropZone) {
+      container.appendChild(dropZone);
+    }
+    
     ungroupedTabs.forEach(tab => {
       const tabElement = this.createTabElement(tab, null);
       container.appendChild(tabElement);
@@ -235,6 +455,7 @@ class TabManager {
   createTabElement(tab, groupIndex) {
     const tabDiv = document.createElement('div');
     tabDiv.className = `tab-item ${this.selectedTabs.has(tab.id) ? 'selected' : ''}`;
+    tabDiv.draggable = true;
     
     tabDiv.innerHTML = `
       <input type="checkbox" class="tab-checkbox" data-tab-id="${tab.id}" ${this.selectedTabs.has(tab.id) ? 'checked' : ''}>
@@ -303,7 +524,8 @@ class TabManager {
           <button class="group-action" data-action="delete" title="Delete group">🗑️</button>
         </div>
       </div>
-      <div class="group-tabs ${group.collapsed ? 'collapsed' : ''}" id="group-tabs-${groupIndex}">
+      <div class="group-tabs ${group.collapsed ? 'collapsed' : ''}" id="group-tabs-${groupIndex}" data-group="${groupIndex}">
+        <div class="drop-zone hidden">Drop tabs here to add to "${group.name}"</div>
         ${validTabs.map(tabData => {
           const tab = this.allTabs.find(t => t.id === tabData.id);
           return tab ? this.createTabElement(tab, groupIndex).outerHTML : '';
@@ -311,7 +533,7 @@ class TabManager {
       </div>
     `;
 
-    // Re-attach event listeners to the new elements
+    // Re-attach event listeners
     this.attachGroupEventListeners(groupDiv, groupIndex);
     this.attachTabEventListeners(groupDiv);
 
@@ -351,6 +573,9 @@ class TabManager {
     // Re-attach tab event listeners
     groupDiv.querySelectorAll('.tab-item').forEach(tabItem => {
       const tabId = parseInt(tabItem.querySelector('.tab-checkbox').dataset.tabId);
+      
+      // Make draggable
+      tabItem.draggable = true;
       
       // Checkbox handler
       const checkbox = tabItem.querySelector('.tab-checkbox');
@@ -400,7 +625,7 @@ class TabManager {
     document.getElementById('empty-state').classList.toggle('hidden', hasVisibleTabs);
   }
 
-  // New Features Implementation
+  // Enhanced Features Implementation
   
   selectAllTabs() {
     const visibleTabs = this.getFilteredTabs();
@@ -435,7 +660,6 @@ class TabManager {
     const duplicateTabs = [];
     Object.values(urlGroups).forEach(tabs => {
       if (tabs.length > 1) {
-        // Keep the first tab, close the rest
         duplicateTabs.push(...tabs.slice(1));
       }
     });
@@ -504,8 +728,8 @@ class TabManager {
     list.innerHTML = this.groups.map((group, index) => `
       <div class="group-selection-item" data-group-index="${index}">
         <div class="group-info">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <div class="group-color" style="background: ${group.color}; width: 12px; height: 12px; border-radius: 50%;"></div>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div class="group-color" style="background: ${group.color}; width: 16px; height: 16px; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></div>
             <h4>${group.name}</h4>
           </div>
           <small>${group.tabs.length} tabs</small>
@@ -555,7 +779,7 @@ class TabManager {
     const list = document.getElementById('sessions-list');
     
     if (this.sessions.length === 0) {
-      list.innerHTML = '<p style="text-align: center; color: #9ca3af; padding: 20px;">No saved sessions</p>';
+      list.innerHTML = '<div style="text-align: center; color: #9ca3af; padding: 40px; font-size: 14px;"><div style="font-size: 32px; margin-bottom: 12px;">📂</div>No saved sessions<br><small>Save your current session to restore it later</small></div>';
     } else {
       list.innerHTML = this.sessions.map((session, index) => `
         <div class="session-item" data-session-index="${index}">
@@ -563,7 +787,7 @@ class TabManager {
             <h4>${session.name}</h4>
             <small>${session.tabs.length} tabs • ${new Date(session.id).toLocaleDateString()}</small>
           </div>
-          <button class="btn-secondary" onclick="event.stopPropagation(); tabManager.deleteSession(${index})">Delete</button>
+          <button class="btn-secondary" onclick="event.stopPropagation(); tabManager.deleteSession(${index})" style="padding: 6px 12px; font-size: 10px;">Delete</button>
         </div>
       `).join('');
 
@@ -587,6 +811,10 @@ class TabManager {
     if (!session) return;
 
     try {
+      // Show loading state
+      const modal = document.getElementById('restore-session-modal');
+      modal.classList.add('loading');
+      
       // Restore tabs
       for (const tab of session.tabs) {
         await chrome.tabs.create({ url: tab.url, active: false });
@@ -599,22 +827,25 @@ class TabManager {
       this.render();
       this.updateStats();
       
-      alert(`Restored session: ${session.name}`);
+      modal.classList.remove('loading');
+      modal.classList.add('hidden');
+      
+      alert(`✅ Restored session: ${session.name}`);
     } catch (error) {
       console.error('Error restoring session:', error);
-      alert('Error restoring session');
+      alert('❌ Error restoring session');
     }
   }
 
   async deleteSession(sessionIndex) {
-    if (confirm('Delete this session?')) {
+    if (confirm('Delete this session permanently?')) {
       this.sessions.splice(sessionIndex, 1);
       await this.saveData();
       this.showRestoreSessionModal(); // Refresh the modal
     }
   }
 
-  // Existing methods (updated where needed)
+  // Group Management Methods
   
   showCreateGroupModal() {
     document.getElementById('create-group-modal').classList.remove('hidden');
@@ -633,7 +864,16 @@ class TabManager {
 
   async createGroup() {
     const name = document.getElementById('group-name-input').value.trim();
-    if (!name) return;
+    if (!name) {
+      alert('Please enter a group name');
+      return;
+    }
+
+    // Check for duplicate names
+    if (this.groups.some(group => group.name.toLowerCase() === name.toLowerCase())) {
+      alert('A group with this name already exists');
+      return;
+    }
 
     const autoClose = document.getElementById('auto-close-empty').checked;
 
@@ -643,7 +883,8 @@ class TabManager {
       color: this.selectedColor,
       tabs: [],
       collapsed: false,
-      autoClose
+      autoClose,
+      createdAt: new Date().toISOString()
     };
 
     this.groups.push(newGroup);
@@ -651,11 +892,15 @@ class TabManager {
     this.render();
     this.updateStats();
     this.hideCreateGroupModal();
+    
+    // Show success message
+    this.showToast(`✅ Created group "${name}"`);
   }
 
   async closeTab(tabId) {
     try {
       await chrome.tabs.remove(tabId);
+      
       // Remove from groups and clean up empty groups with auto-close
       this.groups = this.groups.filter(group => {
         group.tabs = group.tabs.filter(tab => tab.id !== tabId);
@@ -675,7 +920,9 @@ class TabManager {
   async toggleGroup(groupIndex) {
     this.groups[groupIndex].collapsed = !this.groups[groupIndex].collapsed;
     const tabsContainer = document.getElementById(`group-tabs-${groupIndex}`);
-    tabsContainer.classList.toggle('collapsed');
+    if (tabsContainer) {
+      tabsContainer.classList.toggle('collapsed');
+    }
     await this.saveData();
   }
 
@@ -693,6 +940,7 @@ class TabManager {
         // Auto-delete group if it has auto-close enabled
         if (group.autoClose) {
           this.groups.splice(groupIndex, 1);
+          this.showToast(`🗑️ Deleted empty group "${group.name}"`);
         }
         
         await this.saveData();
@@ -707,11 +955,12 @@ class TabManager {
 
   async deleteGroup(groupIndex) {
     const group = this.groups[groupIndex];
-    if (confirm(`Delete group "${group.name}"? Tabs will become ungrouped.`)) {
+    if (confirm(`Delete group "${group.name}"?\nTabs will become ungrouped.`)) {
       this.groups.splice(groupIndex, 1);
       await this.saveData();
       this.render();
       this.updateStats();
+      this.showToast(`🗑️ Deleted group "${group.name}"`);
     }
   }
 
@@ -724,14 +973,99 @@ class TabManager {
       name: sessionName,
       tabs: this.allTabs.map(tab => ({
         title: tab.title,
-        url: tab.url
+        url: tab.url,
+        favicon: tab.favicon
       })),
-      groups: JSON.parse(JSON.stringify(this.groups)) // Deep copy
+      groups: JSON.parse(JSON.stringify(this.groups)), // Deep copy
+      createdAt: new Date().toISOString(),
+      tabCount: this.allTabs.length,
+      groupCount: this.groups.length
     };
 
     this.sessions.push(session);
+    
+    // Limit to 10 most recent sessions
+    if (this.sessions.length > 10) {
+      this.sessions = this.sessions.slice(-10);
+    }
+    
     await this.saveData();
-    alert('Session saved successfully!');
+    this.showToast(`💾 Session "${sessionName}" saved successfully!`);
+  }
+
+  // Utility Methods
+  
+  showToast(message, duration = 3000) {
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.9);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 10000;
+      backdrop-filter: blur(12px);
+      animation: slideUpToast 0.3s ease;
+    `;
+    
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes slideUpToast {
+        from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+        to { opacity: 1; transform: translateX(-50%) translateY(0); }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    // Remove after duration
+    setTimeout(() => {
+      toast.style.animation = 'slideUpToast 0.3s ease reverse';
+      setTimeout(() => {
+        if (document.body.contains(toast)) {
+          document.body.removeChild(toast);
+        }
+        if (document.head.contains(style)) {
+          document.head.removeChild(style);
+        }
+      }, 300);
+    }, duration);
+  }
+
+  // Keyboard shortcuts
+  setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+      // Ctrl/Cmd + A: Select all tabs
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a' && !e.target.matches('input')) {
+        e.preventDefault();
+        this.selectAllTabs();
+      }
+      
+      // Delete: Close selected tabs
+      if (e.key === 'Delete' && this.selectedTabs.size > 0) {
+        e.preventDefault();
+        this.closeSelectedTabs();
+      }
+      
+      // Escape: Clear selection or close modals
+      if (e.key === 'Escape') {
+        const openModal = document.querySelector('.modal:not(.hidden)');
+        if (openModal) {
+          openModal.classList.add('hidden');
+        } else {
+          this.selectedTabs.clear();
+          this.render();
+        }
+      }
+    });
   }
 }
 
@@ -741,4 +1075,5 @@ let tabManager;
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
   tabManager = new TabManager();
+  tabManager.setupKeyboardShortcuts();
 });
